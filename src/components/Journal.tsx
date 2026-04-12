@@ -20,83 +20,139 @@ export default function Journal() {
   const { trades } = useFirebase();
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {view === 'list' ? 'Journal' : 'New Entry'}
+    <div className="p-6 md:p-10 space-y-8 animate-in fade-in duration-500 pb-24">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-primary tracking-[0.2em] uppercase">Trade Repository</p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            {view === 'list' ? 'Trade Journal' : 'New Entry'}
           </h1>
-          <p className="text-muted-foreground text-sm">
-            {view === 'list' ? 'Review your technical execution.' : 'Log your trade and psychological state.'}
+          <p className="text-muted-foreground text-sm md:text-base leading-relaxed max-w-2xl">
+            {view === 'list' 
+              ? 'Review your technical execution and psychological state to find your edge.' 
+              : 'Document your setup, confluences, and mental state before execution.'}
           </p>
         </div>
         <Button 
           onClick={() => setView(view === 'list' ? 'add' : 'list')}
           variant={view === 'list' ? 'default' : 'secondary'}
-          size="icon"
-          className="rounded-full w-12 h-12 shadow-lg"
+          className={cn(
+            "h-14 px-8 font-bold rounded-2xl shadow-lg transition-all gap-3",
+            view === 'list' ? "bg-primary text-primary-foreground shadow-primary/20" : "bg-secondary text-foreground"
+          )}
         >
-          {view === 'list' ? <Plus className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+          {view === 'list' ? (
+            <>
+              <Plus className="w-5 h-5" />
+              Log New Trade
+            </>
+          ) : (
+            <>
+              <Clock className="w-5 h-5" />
+              Back to Journal
+            </>
+          )}
         </Button>
       </div>
 
-      {view === 'list' ? <TradeList trades={trades} /> : <AddTradeForm onComplete={() => setView('list')} />}
+      <div className="max-w-7xl mx-auto">
+        {view === 'list' ? <TradeList trades={trades} /> : <AddTradeForm onComplete={() => setView('list')} />}
+      </div>
     </div>
   );
 }
 
 function TradeList({ trades }: { trades: Trade[] }) {
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search pairs..." className="pl-10 bg-secondary border-none" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search pairs, notes, or strategies..." className="h-14 pl-12 bg-secondary/30 border-none rounded-2xl text-lg" />
         </div>
-        <Button variant="secondary" size="icon" className="bg-secondary">
+        <Button variant="secondary" className="h-14 px-6 bg-secondary/50 rounded-2xl gap-2 font-bold">
           <Filter className="w-4 h-4" />
+          Filters
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {trades.length === 0 ? (
-          <div className="text-center py-12 space-y-4">
-            <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto">
-              <BookOpen className="w-8 h-8 text-muted-foreground" />
+          <div className="col-span-full flex flex-col items-center justify-center py-24 space-y-6 bg-secondary/10 rounded-3xl border border-dashed border-border/50">
+            <div className="w-20 h-20 bg-secondary/30 rounded-full flex items-center justify-center">
+              <BookOpen className="w-10 h-10 text-muted-foreground" />
             </div>
-            <p className="text-muted-foreground text-sm">No trades logged yet.</p>
+            <div className="space-y-2 text-center">
+              <p className="font-bold text-xl">No trades logged yet</p>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">Your trading history will appear here once you log your first entry.</p>
+            </div>
           </div>
         ) : (
           trades.map((trade) => (
-            <Card key={trade.id} className="bg-card border-border/50 hover:border-primary/50 transition-colors cursor-pointer group">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center",
-                    trade.result === 'tp' ? "bg-primary/10 text-primary" : 
-                    trade.result === 'sl' ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
-                  )}>
-                    {trade.result === 'tp' ? <CheckCircle2 className="w-6 h-6" /> : 
-                     trade.result === 'sl' ? <XCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            <Card key={trade.id} className="bg-card border-none hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer group rounded-3xl overflow-hidden shadow-xl shadow-black/10">
+              <CardContent className="p-0">
+                <div className="p-6 space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold font-mono tracking-tighter">{trade.pair}</span>
+                        <span className={cn(
+                          "text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest",
+                          trade.side === 'long' ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
+                        )}>
+                          {trade.side}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-bold tracking-widest uppercase">
+                        {trade.timeframe} • {format(new Date(trade.timestamp), 'MMM dd, yyyy')}
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner",
+                      trade.result === 'tp' ? "bg-primary/10 text-primary" : 
+                      trade.result === 'sl' ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+                    )}>
+                      {trade.result === 'tp' ? <CheckCircle2 className="w-7 h-7" /> : 
+                       trade.result === 'sl' ? <XCircle className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm">{trade.pair}</h4>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      {trade.side} • {trade.timeframe} • {format(new Date(trade.timestamp), 'MMM dd, yyyy')}
-                    </p>
+
+                  <div className="grid grid-cols-3 gap-4 py-6 border-y border-border/30">
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Entry</p>
+                      <p className="text-sm font-bold font-mono">${trade.entryPrice.toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Exit</p>
+                      <p className="text-sm font-bold font-mono">${trade.exitPrice?.toLocaleString() || '---'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Leverage</p>
+                      <p className="text-sm font-bold font-mono">{trade.leverage}x</p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className={cn(
-                    "font-mono font-bold", 
-                    trade.result === 'tp' ? "text-primary" : 
-                    trade.result === 'sl' ? "text-destructive" : "text-foreground"
-                  )}>
-                    {trade.result === 'tp' ? 'WIN' : trade.result === 'sl' ? 'LOSS' : 'OPEN'}
-                  </p>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest group-hover:text-primary transition-colors">
-                    Details →
-                  </p>
+
+                  {trade.notes && (
+                    <div className="space-y-2">
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Psychology & Notes</p>
+                      <p className="text-xs text-muted-foreground line-clamp-3 italic leading-relaxed">
+                        "{trade.notes}"
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-between items-center">
+                    <div className={cn(
+                      "text-xs font-black tracking-widest uppercase",
+                      trade.result === 'tp' ? "text-primary" : 
+                      trade.result === 'sl' ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                      {trade.result === 'tp' ? 'Profit Realized' : trade.result === 'sl' ? 'Loss Realized' : 'Active Position'}
+                    </div>
+                    <span className="text-[10px] font-bold text-primary group-hover:translate-x-1 transition-transform">
+                      VIEW FULL ANALYSIS →
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
