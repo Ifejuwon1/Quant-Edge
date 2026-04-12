@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and trading settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "accountCapital": { "type": "number", "description": "Total trading capital" },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "BTC"] }
+      },
+      "required": ["id", "email"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A single trade journal entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "pair": { "type": "string", "description": "Trading pair (e.g., BTC/USDT)" },
+        "timeframe": { "type": "string", "enum": ["5m", "15m", "30m", "1H", "4H", "1D", "Custom"] },
+        "entryPrice": { "type": "number" },
+        "exitPrice": { "type": "number" },
+        "side": { "type": "string", "enum": ["long", "short"] },
+        "leverage": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "result": { "type": "string", "enum": ["tp", "sl", "breakeven", "none"] },
+        "riskFollowed": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "setupImage": { "type": "string", "description": "URL to pre-trade chart screenshot" },
+        "resultImage": { "type": "string", "description": "URL to post-trade chart screenshot" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "pair", "side", "entryPrice", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/users/{userId}/trades/{tradeId}": {
+      "schema": "Trade",
+      "description": "User's trade journal entries"
+    }
+  }
+}
