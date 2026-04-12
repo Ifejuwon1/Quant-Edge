@@ -22,40 +22,57 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeTrades: (() => void) | null = null;
+
+    // Fallback timeout to ensure loading screen doesn't get stuck forever
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 8000);
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      clearTimeout(timeoutId);
       setUser(currentUser);
       
+      // Cleanup previous listeners
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+      if (unsubscribeTrades) {
+        unsubscribeTrades();
+        unsubscribeTrades = null;
+      }
+
       if (currentUser) {
-        // Sync Profile
-        const profileRef = doc(db, 'users', currentUser.uid);
-        const unsubscribeProfile = onSnapshot(profileRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
-          } else {
-            // Create initial profile
-            const initialProfile: UserProfile = {
-              id: currentUser.uid,
-              email: currentUser.email || '',
-              displayName: currentUser.displayName || 'Trader',
-              accountCapital: 10000,
-              currency: 'USD'
-            };
-            setDoc(profileRef, initialProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.uid}`));
-          }
-        }, (error) => handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`));
+        try {
+          // Sync Profile
+          const profileRef = doc(db, 'users', currentUser.uid);
+          unsubscribeProfile = onSnapshot(profileRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setProfile(docSnap.data() as UserProfile);
+            } else {
+              const initialProfile: UserProfile = {
+                id: currentUser.uid,
+                email: currentUser.email || '',
+                displayName: currentUser.displayName || 'Trader',
+                accountCapital: 10000,
+                currency: 'USD'
+              };
+              setDoc(profileRef, initialProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.uid}`));
+            }
+          }, (error) => handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`));
 
-        // Sync Trades
-        const tradesRef = collection(db, 'users', currentUser.uid, 'trades');
-        const tradesQuery = query(tradesRef, orderBy('timestamp', 'desc'));
-        const unsubscribeTrades = onSnapshot(tradesQuery, (snapshot) => {
-          const tradesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Trade));
-          setTrades(tradesData);
-        }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${currentUser.uid}/trades`));
-
-        return () => {
-          unsubscribeProfile();
-          unsubscribeTrades();
-        };
+          // Sync Trades
+          const tradesRef = collection(db, 'users', currentUser.uid, 'trades');
+          const tradesQuery = query(tradesRef, orderBy('timestamp', 'desc'));
+          unsubscribeTrades = onSnapshot(tradesQuery, (snapshot) => {
+            const tradesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Trade));
+            setTrades(tradesData);
+          }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${currentUser.uid}/trades`));
+        } catch (error) {
+          console.error("Error setting up listeners:", error);
+        }
       } else {
         setProfile(null);
         setTrades([]);
@@ -63,7 +80,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+      if (unsubscribeTrades) unsubscribeTrades();
+    };
   }, []);
 
   const login = async () => {

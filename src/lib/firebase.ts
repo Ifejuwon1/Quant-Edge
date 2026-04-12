@@ -4,6 +4,10 @@ import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "TODO_KEYHERE") {
+  throw new Error("Firebase configuration is missing or invalid. Please check your firebase-applet-config.json.");
+}
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -61,8 +65,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection
-async function testConnection() {
+// Test Connection Helper (Exported to be used lazily)
+export async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
@@ -71,4 +75,3 @@ async function testConnection() {
     }
   }
 }
-testConnection();
