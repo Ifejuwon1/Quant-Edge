@@ -10,8 +10,8 @@ import { useFirebase } from '@/src/lib/FirebaseContext';
 
 export default function Calculator() {
   const { profile } = useFirebase();
-  const [capital, setCapital] = useState<number>(profile?.accountCapital || 10000);
-  const [riskAmount, setRiskAmount] = useState<number>(200);
+  const [capital, setCapital] = useState<number | ''>(profile?.accountCapital || 10000);
+  const [riskAmount, setRiskAmount] = useState<number | ''>(200);
   
   useEffect(() => {
     if (profile?.accountCapital) {
@@ -19,30 +19,37 @@ export default function Calculator() {
       setRiskAmount(profile.accountCapital * 0.02); // Default 2% risk
     }
   }, [profile]);
-  const [entry, setEntry] = useState<number>(0);
-  const [stopLoss, setStopLoss] = useState<number>(0);
-  const [target, setTarget] = useState<number>(0);
-  const [side, setSide] = useState<'long' | 'short'>('long');
+  const [entry, setEntry] = useState<number | ''>('');
+  const [stopLoss, setStopLoss] = useState<number | ''>('');
+  const [target, setTarget] = useState<number | ''>('');
 
   const [results, setResults] = useState<any>(null);
   const [rr, setRR] = useState<number>(0);
 
   useEffect(() => {
     if (capital && riskAmount && entry && stopLoss) {
-      const res = calculatePositionSize(capital, riskAmount, entry, stopLoss);
+      const res = calculatePositionSize(Number(capital), Number(riskAmount), Number(entry), Number(stopLoss));
       setResults(res);
     } else {
       setResults(null);
     }
 
     if (entry && stopLoss && target) {
-      setRR(calculateRR(entry, stopLoss, target));
+      setRR(calculateRR(Number(entry), Number(stopLoss), Number(target)));
     } else {
       setRR(0);
     }
   }, [capital, riskAmount, entry, stopLoss, target]);
 
-  const riskPercent = capital > 0 ? (riskAmount / capital) * 100 : 0;
+  const riskPercent = (Number(capital) > 0 && Number(riskAmount) > 0) ? (Number(riskAmount) / Number(capital)) * 100 : 0;
+
+  const handleClear = () => {
+    setCapital('');
+    setRiskAmount('');
+    setEntry('');
+    setStopLoss('');
+    setTarget('');
+  };
 
   return (
     <div className="p-6 md:p-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
@@ -71,9 +78,9 @@ export default function Calculator() {
                   id="capital"
                   type="number"
                   value={capital}
-                  onChange={(e) => setCapital(Number(e.target.value))}
+                  onChange={(e) => setCapital(e.target.value === '' ? '' : Number(e.target.value))}
                   className="bg-secondary/30 border-none h-14 text-xl font-mono font-bold focus-visible:ring-primary rounded-xl"
-                  placeholder="10,000"
+                  placeholder="0"
                 />
               </div>
 
@@ -86,15 +93,15 @@ export default function Calculator() {
                   id="risk"
                   type="number"
                   value={riskAmount}
-                  onChange={(e) => setRiskAmount(Number(e.target.value))}
+                  onChange={(e) => setRiskAmount(e.target.value === '' ? '' : Number(e.target.value))}
                   className="bg-secondary/30 border-none h-14 text-xl font-mono font-bold focus-visible:ring-primary rounded-xl"
-                  placeholder="200"
+                  placeholder="0"
                 />
                 <div className="flex gap-2 pt-1">
                   {[0.5, 1.0, 2.0, 5.0].map((p) => (
                     <button
                       key={p}
-                      onClick={() => setRiskAmount(capital * (p / 100))}
+                      onClick={() => setRiskAmount(Number(capital) * (p / 100))}
                       className="flex-1 py-3 text-[10px] font-bold bg-secondary rounded-xl hover:bg-muted transition-colors"
                     >
                       {p}%
@@ -109,8 +116,8 @@ export default function Calculator() {
                   <Input
                     id="entry"
                     type="number"
-                    value={entry || ''}
-                    onChange={(e) => setEntry(Number(e.target.value))}
+                    value={entry}
+                    onChange={(e) => setEntry(e.target.value === '' ? '' : Number(e.target.value))}
                     className="bg-secondary/30 border-none h-14 text-xl font-mono font-bold focus-visible:ring-primary rounded-xl"
                     placeholder="0.00"
                   />
@@ -120,8 +127,8 @@ export default function Calculator() {
                   <Input
                     id="stopLoss"
                     type="number"
-                    value={stopLoss || ''}
-                    onChange={(e) => setStopLoss(Number(e.target.value))}
+                    value={stopLoss}
+                    onChange={(e) => setStopLoss(e.target.value === '' ? '' : Number(e.target.value))}
                     className="bg-secondary/30 border-none h-14 text-xl font-mono font-bold focus-visible:ring-primary rounded-xl"
                     placeholder="0.00"
                   />
@@ -133,33 +140,20 @@ export default function Calculator() {
                 <Input
                   id="target"
                   type="number"
-                  value={target || ''}
-                  onChange={(e) => setTarget(Number(e.target.value))}
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value === '' ? '' : Number(e.target.value))}
                   className="bg-secondary/30 border-none h-14 text-xl font-mono font-bold focus-visible:ring-primary rounded-xl"
                   placeholder="0.00"
                 />
               </div>
 
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setSide('long')}
-                  className={cn(
-                    "flex-1 h-14 font-bold rounded-xl transition-all",
-                    side === 'long' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground"
-                  )}
-                >
-                  LONG (BUY)
-                </Button>
-                <Button
-                  onClick={() => setSide('short')}
-                  className={cn(
-                    "flex-1 h-14 font-bold rounded-xl transition-all",
-                    side === 'short' ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20" : "bg-secondary text-muted-foreground"
-                  )}
-                >
-                  SHORT (SELL)
-                </Button>
-              </div>
+              <Button
+                onClick={handleClear}
+                variant="outline"
+                className="w-full h-14 font-bold rounded-xl border-dashed border-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive transition-all"
+              >
+                CLEAR ALL INPUTS
+              </Button>
             </div>
           </CardContent>
         </Card>
