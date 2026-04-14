@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TIMEFRAMES } from '@/src/lib/constants';
-import { Plus, Search, Filter, Image as ImageIcon, CheckCircle2, XCircle, Clock, Loader2, BookOpen, Trash2, Upload, Calendar, TrendingDown } from 'lucide-react';
+import { Plus, Search, Filter, Image as ImageIcon, CheckCircle2, XCircle, Clock, Loader2, BookOpen, Trash2, Upload, Calendar, TrendingDown, Maximize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/src/lib/FirebaseContext';
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
@@ -203,9 +203,91 @@ function TradeList({ trades, onPreview }: { trades: Trade[], onPreview: (t: Trad
   );
 }
 
+function ImageLightbox({ src, onClose }: { src: string, onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.min(Math.max(1, prev + delta), 3));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoom > 1) {
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  return (
+    <div 
+      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center animate-in fade-in duration-300"
+      onWheel={handleWheel}
+    >
+      <button 
+        onClick={onClose}
+        className="absolute top-6 right-6 z-[110] p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+      >
+        <X className="w-6 h-6 text-white" />
+      </button>
+      
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-4 bg-white/10 px-6 py-3 rounded-full backdrop-blur-md border border-white/10">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-white hover:bg-white/10"
+          onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
+        >
+          Reset
+        </Button>
+        <div className="w-px h-4 bg-white/20" />
+        <span className="text-white text-xs font-bold font-mono">{(zoom * 100).toFixed(0)}%</span>
+      </div>
+
+      <div 
+        className={cn(
+          "relative max-w-[90vw] max-h-[90vh] transition-transform duration-200 ease-out",
+          isDragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
+        )}
+        style={{ 
+          transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <img 
+          src={src} 
+          alt="Full size analysis" 
+          className="rounded-lg shadow-2xl pointer-events-none select-none"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    </div>
+  );
+}
+
 function TradePreview({ trade, onEdit }: { trade: Trade, onEdit: () => void }) {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+      {lightboxImage && <ImageLightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
@@ -248,12 +330,16 @@ function TradePreview({ trade, onEdit }: { trade: Trade, onEdit: () => void }) {
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary">Screenshots</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {trade.images.map((img, idx) => (
-              <div key={idx} className="aspect-video rounded-3xl overflow-hidden bg-secondary/30 border border-border/50 group relative">
+              <div 
+                key={idx} 
+                onClick={() => setLightboxImage(img)}
+                className="aspect-video rounded-3xl overflow-hidden bg-secondary/30 border border-border/50 group relative cursor-zoom-in"
+              >
                 <img src={img} alt={`Analysis ${idx + 1}`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button variant="secondary" className="font-bold" onClick={() => window.open(img, '_blank')}>
-                    View Full Size
-                  </Button>
+                  <div className="bg-white/10 p-4 rounded-full backdrop-blur-md border border-white/20">
+                    <Maximize2 className="w-6 h-6 text-white" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -295,6 +381,7 @@ function AddTradeForm({ onComplete, initialData, isEdit }: { onComplete: () => v
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [images, setImages] = useState<string[]>(initialData?.images || []);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [customTimeframe, setCustomTimeframe] = useState(
     initialData && !TIMEFRAMES.includes(initialData.timeframe as any) ? initialData.timeframe : ''
   );
@@ -537,12 +624,18 @@ function AddTradeForm({ onComplete, initialData, isEdit }: { onComplete: () => v
           <div className="space-y-4">
             <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Screenshots (Max 2)</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {lightboxImage && <ImageLightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
               {images.map((img, idx) => (
                 <div key={idx} className="relative aspect-video rounded-xl overflow-hidden bg-secondary group">
-                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img 
+                    src={img} 
+                    alt={`Upload ${idx + 1}`} 
+                    className="w-full h-full object-cover cursor-zoom-in" 
+                    onClick={() => setLightboxImage(img)}
+                  />
                   <button 
                     onClick={() => removeImage(idx)}
-                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-10"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
