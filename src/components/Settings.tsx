@@ -1,35 +1,43 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, Shield, Bell, HelpCircle, LogOut, ChevronRight, Globe, Moon, CreditCard, Plus } from 'lucide-react';
+import { User, HelpCircle, LogOut, ChevronRight, Globe, Moon, Sun, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/src/lib/FirebaseContext';
 
 export default function Settings() {
-  const { user, logout, profile } = useFirebase();
+  const { user, logout, profile, updateProfile } = useFirebase();
+
+  const handleCurrencyChange = () => {
+    const currencies = ['USD', 'GBP', 'NGN'];
+    const currentIndex = currencies.indexOf(profile?.currency || 'USD');
+    const nextIndex = (currentIndex + 1) % currencies.length;
+    updateProfile({ currency: currencies[nextIndex] });
+  };
+
+  const toggleTheme = () => {
+    const nextTheme = profile?.theme === 'light' ? 'dark' : 'light';
+    updateProfile({ theme: nextTheme });
+  };
+
   const sections = [
     {
       title: 'ACCOUNT SETTINGS',
       items: [
-        { icon: User, label: 'Account Type', value: 'Institutional Leveraged' },
-        { icon: Globe, label: 'Default Currency', value: profile?.currency || 'USD' },
-        { icon: Moon, label: 'Theme', value: 'Onyx Dark (Default)' },
-      ]
-    },
-    {
-      title: 'SECURITY',
-      items: [
-        { icon: Shield, label: 'Change Password', value: null },
-        { icon: Shield, label: 'Two-Factor Authentication', value: 'ON', toggle: true },
-        { icon: CreditCard, label: 'Active Sessions', value: '1 Active' },
-      ]
-    },
-    {
-      title: 'NOTIFICATIONS',
-      items: [
-        { icon: Bell, label: 'Price Alerts', value: null, toggle: true, checked: true },
-        { icon: Bell, label: 'Trade Execution', value: null, toggle: true, checked: true },
-        { icon: Bell, label: 'Journal Reminders', value: null, toggle: true, checked: false },
+        { 
+          icon: Globe, 
+          label: 'Default Currency', 
+          value: profile?.currency || 'USD',
+          onClick: handleCurrencyChange
+        },
+        { 
+          icon: profile?.theme === 'light' ? Sun : Moon, 
+          label: 'Theme', 
+          value: profile?.theme === 'light' ? 'Light Mode' : 'Dark Mode',
+          onClick: toggleTheme,
+          toggle: true,
+          checked: profile?.theme !== 'light'
+        },
       ]
     }
   ];
@@ -74,6 +82,7 @@ export default function Settings() {
                   return (
                     <div 
                       key={item.label} 
+                      onClick={item.onClick}
                       className={cn(
                         "flex justify-between items-center p-4 cursor-pointer hover:bg-secondary/30 transition-colors",
                         i !== section.items.length - 1 && "border-b border-border/50"
@@ -88,11 +97,11 @@ export default function Settings() {
                         {item.toggle ? (
                           <div className={cn(
                             "w-10 h-5 rounded-full relative transition-colors",
-                            item.checked || item.value === 'ON' ? "bg-primary" : "bg-muted"
+                            item.checked ? "bg-primary" : "bg-muted"
                           )}>
                             <div className={cn(
                               "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
-                              item.checked || item.value === 'ON' ? "right-1" : "left-1"
+                              item.checked ? "right-1" : "left-1"
                             )} />
                           </div>
                         ) : (
@@ -113,13 +122,6 @@ export default function Settings() {
           <div className="flex items-center gap-3">
             <HelpCircle className="w-4 h-4" />
             <span>Help Center</span>
-          </div>
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" className="w-full justify-between h-12 text-muted-foreground hover:text-foreground">
-          <div className="flex items-center gap-3">
-            <Shield className="w-4 h-4" />
-            <span>Privacy Policy</span>
           </div>
           <ChevronRight className="w-4 h-4" />
         </Button>

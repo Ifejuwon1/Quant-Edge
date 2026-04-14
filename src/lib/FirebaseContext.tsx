@@ -11,6 +11,7 @@ interface FirebaseContextType {
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
@@ -20,6 +21,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Apply theme
+    if (profile?.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+  }, [profile?.theme]);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
@@ -57,7 +67,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                 email: currentUser.email || '',
                 displayName: currentUser.displayName || 'Trader',
                 accountCapital: 10000,
-                currency: 'USD'
+                currency: 'USD',
+                theme: 'dark'
               };
               setDoc(profileRef, initialProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.uid}`));
             }
@@ -104,8 +115,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    try {
+      const profileRef = doc(db, 'users', user.uid);
+      await setDoc(profileRef, updates, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   return (
-    <FirebaseContext.Provider value={{ user, profile, trades, loading, login, logout }}>
+    <FirebaseContext.Provider value={{ user, profile, trades, loading, login, logout, updateProfile }}>
       {children}
     </FirebaseContext.Provider>
   );

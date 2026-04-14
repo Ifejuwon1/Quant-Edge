@@ -9,6 +9,7 @@ export interface UserProfile {
   displayName: string;
   accountCapital: number;
   currency: string;
+  theme?: 'dark' | 'light';
 }
 
 export interface Trade {
