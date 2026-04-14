@@ -1,46 +1,28 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, HelpCircle, LogOut, ChevronRight, Globe, Moon, Sun, Plus } from 'lucide-react';
+import { HelpCircle, LogOut, ChevronRight, Globe, Moon, Sun, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/src/lib/FirebaseContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Settings() {
   const { user, logout, profile, updateProfile } = useFirebase();
 
-  const handleCurrencyChange = () => {
-    const currencies = ['USD', 'GBP', 'NGN'];
-    const currentIndex = currencies.indexOf(profile?.currency || 'USD');
-    const nextIndex = (currentIndex + 1) % currencies.length;
-    updateProfile({ currency: currencies[nextIndex] });
+  const handleCurrencyChange = (value: string) => {
+    updateProfile({ currency: value });
   };
 
   const toggleTheme = () => {
     const nextTheme = profile?.theme === 'light' ? 'dark' : 'light';
     updateProfile({ theme: nextTheme });
   };
-
-  const sections = [
-    {
-      title: 'ACCOUNT SETTINGS',
-      items: [
-        { 
-          icon: Globe, 
-          label: 'Default Currency', 
-          value: profile?.currency || 'USD',
-          onClick: handleCurrencyChange
-        },
-        { 
-          icon: profile?.theme === 'light' ? Sun : Moon, 
-          label: 'Theme', 
-          value: profile?.theme === 'light' ? 'Light Mode' : 'Dark Mode',
-          onClick: toggleTheme,
-          toggle: true,
-          checked: profile?.theme !== 'light'
-        },
-      ]
-    }
-  ];
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in duration-500 pb-24">
@@ -72,53 +54,63 @@ export default function Settings() {
       </Button>
 
       <div className="space-y-8">
-        {sections.map((section) => (
-          <div key={section.title} className="space-y-4">
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">{section.title}</h3>
-            <Card className="bg-secondary/20 border-none overflow-hidden">
-              <CardContent className="p-0">
-                {section.items.map((item, i) => {
-                  const Icon = item.icon;
-                  return (
-                    <div 
-                      key={item.label} 
-                      onClick={item.onClick}
-                      className={cn(
-                        "flex justify-between items-center p-4 cursor-pointer hover:bg-secondary/30 transition-colors",
-                        i !== section.items.length - 1 && "border-b border-border/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{item.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {item.value && <span className="text-xs text-muted-foreground">{item.value}</span>}
-                        {item.toggle ? (
-                          <div className={cn(
-                            "w-10 h-5 rounded-full relative transition-colors",
-                            item.checked ? "bg-primary" : "bg-muted"
-                          )}>
-                            <div className={cn(
-                              "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
-                              item.checked ? "right-1" : "left-1"
-                            )} />
-                          </div>
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">ACCOUNT SETTINGS</h3>
+          <Card className="bg-secondary/20 border-none overflow-hidden">
+            <CardContent className="p-0">
+              {/* Currency Dropdown */}
+              <div className="flex justify-between items-center p-4 border-b border-border/50">
+                <div className="flex items-center gap-3">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Default Currency</span>
+                </div>
+                <Select value={profile?.currency || 'USD'} onValueChange={handleCurrencyChange}>
+                  <SelectTrigger className="h-8 bg-transparent border-none hover:bg-secondary/30 transition-colors font-bold text-xs">
+                    <SelectValue placeholder="Select Currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="NGN">NGN</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Theme Toggle */}
+              <div 
+                onClick={toggleTheme}
+                className="flex justify-between items-center p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {profile?.theme === 'light' ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+                  <span className="text-sm font-medium">Theme</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {profile?.theme === 'light' ? 'Light Mode' : 'Dark Mode'}
+                  </span>
+                  <div className={cn(
+                    "w-10 h-5 rounded-full relative transition-colors",
+                    profile?.theme !== 'light' ? "bg-primary" : "bg-muted"
+                  )}>
+                    <div className={cn(
+                      "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                      profile?.theme !== 'light' ? "right-1" : "left-1"
+                    )} />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="space-y-3">
-        <Button variant="ghost" className="w-full justify-between h-12 text-muted-foreground hover:text-foreground">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-between h-12 text-muted-foreground hover:text-foreground"
+          onClick={() => window.open('https://x.com/ij__trades', '_blank')}
+        >
           <div className="flex items-center gap-3">
             <HelpCircle className="w-4 h-4" />
             <span>Help Center</span>

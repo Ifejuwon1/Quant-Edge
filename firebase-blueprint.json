@@ -9,7 +9,8 @@
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
         "accountCapital": { "type": "number", "description": "Total trading capital" },
-        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP", "BTC"] }
+        "currency": { "type": "string", "enum": ["USD", "GBP", "NGN"] },
+        "theme": { "type": "string", "enum": ["dark", "light"] }
       },
       "required": ["id", "email"]
     },
@@ -21,20 +22,20 @@
         "id": { "type": "string" },
         "userId": { "type": "string" },
         "pair": { "type": "string", "description": "Trading pair (e.g., BTC/USDT)" },
-        "timeframe": { "type": "string", "enum": ["5m", "15m", "30m", "1H", "4H", "1D", "Custom"] },
+        "timeframe": { "type": "string", "description": "Timeframe used for the trade" },
         "entryPrice": { "type": "number" },
         "exitPrice": { "type": "number" },
         "side": { "type": "string", "enum": ["long", "short"] },
         "leverage": { "type": "number" },
         "status": { "type": "string", "enum": ["open", "closed"] },
-        "result": { "type": "string", "enum": ["tp", "sl", "breakeven", "none"] },
+        "result": { "type": "string", "enum": ["tp", "sl", "tsl", "breakeven", "none"] },
         "riskFollowed": { "type": "boolean" },
         "notes": { "type": "string" },
-        "setupImage": { "type": "string", "description": "URL to pre-trade chart screenshot" },
-        "resultImage": { "type": "string", "description": "URL to post-trade chart screenshot" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "images": { "type": "array", "items": { "type": "string" }, "description": "Base64 encoded screenshots (max 2)" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "tradeDate": { "type": "string", "format": "date", "description": "The date the trade was taken" }
       },
-      "required": ["userId", "pair", "side", "entryPrice", "timestamp"]
+      "required": ["userId", "pair", "side", "entryPrice", "timestamp", "tradeDate"]
     }
   },
   "firestore": {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TIMEFRAMES } from '@/src/lib/constants';
-import { Plus, Search, Filter, Image as ImageIcon, CheckCircle2, XCircle, Clock, Loader2, BookOpen } from 'lucide-react';
+import { Plus, Search, Filter, Image as ImageIcon, CheckCircle2, XCircle, Clock, Loader2, BookOpen, Trash2, Upload, Calendar, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/src/lib/FirebaseContext';
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
@@ -104,16 +104,18 @@ function TradeList({ trades }: { trades: Trade[] }) {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground font-bold tracking-widest uppercase">
-                        {trade.timeframe} • {format(new Date(trade.timestamp), 'MMM dd, yyyy')}
+                        {trade.timeframe} • {format(new Date(trade.tradeDate || trade.timestamp), 'MMM dd, yyyy')}
                       </p>
                     </div>
                     <div className={cn(
                       "w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner",
                       trade.result === 'tp' ? "bg-primary/10 text-primary" : 
-                      trade.result === 'sl' ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+                      trade.result === 'sl' ? "bg-destructive/10 text-destructive" : 
+                      trade.result === 'tsl' ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground"
                     )}>
                       {trade.result === 'tp' ? <CheckCircle2 className="w-7 h-7" /> : 
-                       trade.result === 'sl' ? <XCircle className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
+                       trade.result === 'sl' ? <XCircle className="w-7 h-7" /> : 
+                       trade.result === 'tsl' ? <TrendingDown className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
                     </div>
                   </div>
 
@@ -145,9 +147,12 @@ function TradeList({ trades }: { trades: Trade[] }) {
                     <div className={cn(
                       "text-xs font-black tracking-widest uppercase",
                       trade.result === 'tp' ? "text-primary" : 
-                      trade.result === 'sl' ? "text-destructive" : "text-muted-foreground"
+                      trade.result === 'sl' ? "text-destructive" : 
+                      trade.result === 'tsl' ? "text-amber-500" : "text-muted-foreground"
                     )}>
-                      {trade.result === 'tp' ? 'Profit Realized' : trade.result === 'sl' ? 'Loss Realized' : 'Active Position'}
+                      {trade.result === 'tp' ? 'Profit Realized' : 
+                       trade.result === 'sl' ? 'Loss Realized' : 
+                       trade.result === 'tsl' ? 'TSL Hit' : 'Active Position'}
                     </div>
                     <span className="text-[10px] font-bold text-primary group-hover:translate-x-1 transition-transform">
                       VIEW FULL ANALYSIS →
@@ -166,17 +171,44 @@ function TradeList({ trades }: { trades: Trade[] }) {
 function AddTradeForm({ onComplete }: { onComplete: () => void }) {
   const { user } = useFirebase();
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [customTimeframe, setCustomTimeframe] = useState('');
+  
   const [formData, setFormData] = useState({
     pair: '',
     timeframe: '1H' as Timeframe,
-    leverage: 10,
-    entryPrice: 0,
-    exitPrice: 0,
+    leverage: 10 as number | '',
+    entryPrice: 0 as number | '',
+    exitPrice: 0 as number | '',
     side: 'long' as TradeSide,
     notes: '',
     riskFollowed: true,
-    result: 'none' as TradeResult
+    result: 'none' as TradeResult,
+    tradeDate: format(new Date(), 'yyyy-MM-dd')
   });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    if (images.length + files.length > 2) {
+      alert("Maximum 2 screenshots allowed.");
+      return;
+    }
+
+    Array.from(files).forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -187,19 +219,23 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
 
     setLoading(true);
     try {
+      const finalTimeframe = formData.timeframe === 'Custom' ? customTimeframe : formData.timeframe;
+      
       const tradeData: Omit<Trade, 'id'> = {
         userId: user.uid,
         pair: formData.pair,
-        timeframe: formData.timeframe,
-        leverage: formData.leverage,
-        entryPrice: formData.entryPrice,
-        exitPrice: formData.exitPrice || undefined,
+        timeframe: finalTimeframe || '1H',
+        leverage: Number(formData.leverage) || 0,
+        entryPrice: Number(formData.entryPrice),
+        exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
         side: formData.side,
         status: formData.result === 'none' ? 'open' : 'closed',
         result: formData.result,
         riskFollowed: formData.riskFollowed,
         notes: formData.notes,
-        timestamp: new Date().toISOString()
+        images: images,
+        timestamp: new Date().toISOString(),
+        tradeDate: formData.tradeDate
       };
 
       const path = `users/${user.uid}/trades`;
@@ -221,14 +257,28 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Trading Pair</Label>
-            <Input 
-              placeholder="BTC/USDT" 
-              className="bg-secondary border-none h-12" 
-              value={formData.pair}
-              onChange={(e) => setFormData({ ...formData, pair: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Trading Pair</Label>
+              <Input 
+                placeholder="BTC/USDT" 
+                className="bg-secondary border-none h-12" 
+                value={formData.pair}
+                onChange={(e) => setFormData({ ...formData, pair: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Trade Date</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input 
+                  type="date"
+                  className="bg-secondary border-none h-12 pl-10" 
+                  value={formData.tradeDate}
+                  onChange={(e) => setFormData({ ...formData, tradeDate: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -247,15 +297,23 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
+              {formData.timeframe === 'Custom' && (
+                <Input 
+                  placeholder="Enter custom timeframe (e.g. 2H)" 
+                  className="bg-secondary border-none h-10 mt-2 text-xs" 
+                  value={customTimeframe}
+                  onChange={(e) => setCustomTimeframe(e.target.value)}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Leverage</Label>
               <Input 
                 type="number" 
-                placeholder="10x" 
+                placeholder="0" 
                 className="bg-secondary border-none h-12" 
                 value={formData.leverage}
-                onChange={(e) => setFormData({ ...formData, leverage: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, leverage: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
           </div>
@@ -267,8 +325,8 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
                 type="number" 
                 placeholder="0.00" 
                 className="bg-secondary border-none h-12" 
-                value={formData.entryPrice || ''}
-                onChange={(e) => setFormData({ ...formData, entryPrice: Number(e.target.value) })}
+                value={formData.entryPrice}
+                onChange={(e) => setFormData({ ...formData, entryPrice: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
             <div className="space-y-2">
@@ -277,8 +335,8 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
                 type="number" 
                 placeholder="0.00" 
                 className="bg-secondary border-none h-12" 
-                value={formData.exitPrice || ''}
-                onChange={(e) => setFormData({ ...formData, exitPrice: Number(e.target.value) })}
+                value={formData.exitPrice}
+                onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
           </div>
@@ -309,10 +367,11 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
 
           <div className="space-y-2">
             <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Trade Result</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {[
-                { id: 'none', label: 'OPEN' },
+                { id: 'none', label: 'NONE' },
                 { id: 'tp', label: 'TP HIT' },
+                { id: 'tsl', label: 'TSL HIT' },
                 { id: 'sl', label: 'SL HIT' },
               ].map((res) => (
                 <Button
@@ -334,7 +393,7 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-primary">
           <ImageIcon className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-widest">Analysis & Notes</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest">Analysis & Screenshots</h3>
         </div>
         
         <div className="space-y-4">
@@ -345,6 +404,40 @@ function AddTradeForm({ onComplete }: { onComplete: () => void }) {
               className="bg-secondary border-none min-h-[120px] resize-none"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Screenshots (Max 2)</Label>
+            <div className="grid grid-cols-2 gap-4">
+              {images.map((img, idx) => (
+                <div key={idx} className="relative aspect-video rounded-xl overflow-hidden bg-secondary group">
+                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button 
+                    onClick={() => removeImage(idx)}
+                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {images.length < 2 && (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-video rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors"
+                >
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Upload Screenshot</span>
+                </button>
+              )}
+            </div>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              multiple 
+              onChange={handleImageUpload} 
             />
           </div>
         </div>
